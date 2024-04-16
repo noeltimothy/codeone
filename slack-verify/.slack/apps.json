@@ -1,0 +1,11 @@
+{
+  "apps": {
+    "THK2QA55Z": {
+      "app_id": "A06LTDY480H",
+      "IsDev": false,
+      "team_domain": "galactica-talk",
+      "team_id": "THK2QA55Z"
+    }
+  },
+  "default": "galactica-talk"
+}
