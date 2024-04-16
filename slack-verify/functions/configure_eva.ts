@@ -10,6 +10,7 @@ var config = {
 	logo: "",
 	request_message: "Hi, I would like to verify if you are on the call.",
 	response_message: "I have verified my credentials.",
+	timeout_message: "Your verification request has been timed-out.",
 	timeout: 60
 }
 
@@ -39,12 +40,14 @@ export default SlackFunction(
                 	configure_eva_view.blocks[5]['element']['initial_value'] = response.items[0].key;
                 	configure_eva_view.blocks[6]['element']['initial_value'] = response.items[0].request_message;
                 	configure_eva_view.blocks[7]['element']['initial_value'] = response.items[0].response_message;
-               	 	configure_eva_view.blocks[8]['element']['initial_value'] = response.items[0].logo;
-                	configure_eva_view.blocks[9]['element']['initial_value'] = String(response.items[0].timeout);
+                	configure_eva_view.blocks[8]['element']['initial_value'] = response.items[0].timeout_message;
+               	 	configure_eva_view.blocks[9]['element']['initial_value'] = response.items[0].logo;
+                	configure_eva_view.blocks[10]['element']['initial_value'] = String(response.items[0].timeout);
 		} else {
                 	configure_eva_view.blocks[6]['element']['initial_value'] = config.request_message;
                 	configure_eva_view.blocks[7]['element']['initial_value'] = config.response_message;
-                	configure_eva_view.blocks[9]['element']['initial_value'] = String(config.timeout);
+                	configure_eva_view.blocks[8]['element']['initial_value'] = config.timeout_message;
+                	configure_eva_view.blocks[10]['element']['initial_value'] = String(config.timeout);
 		}
 
     		response = await client.views.open({
@@ -78,6 +81,9 @@ export default SlackFunction(
                 }
                 if ('custom_response_message' in data[k]) {
                     config.response_message = data[k]['custom_response_message']['value']
+                }
+                if ('custom_timeout_message' in data[k]) {
+                    config.timeout_message = data[k]['custom_timeout_message']['value']
                 }
                 if ('logo' in data[k]) {
                     config.logo = data[k]['logo']['value']

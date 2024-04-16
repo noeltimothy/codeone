@@ -27,6 +27,9 @@ const EvaConfigurationDatastore = DefineDatastore({
     response_message: {
       type: Schema.types.string,
     },
+    timeout_message: {
+      type: Schema.types.string,
+    },
     timeout: {
       type: Schema.types.number,
     },

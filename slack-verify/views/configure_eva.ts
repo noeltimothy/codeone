@@ -93,6 +93,20 @@ const configuration_modal =
                         "type": "input",
                         "element": {
                                 "type": "plain_text_input",
+                                "multiline": true,
+                                "initial_value": "",
+                                "action_id": "custom_timeout_message"
+                        },
+                        "label": {
+                                "type": "plain_text",
+                                "text": "This is the default timeout message",
+                                "emoji": true
+                        }
+                },
+                {
+                        "type": "input",
+                        "element": {
+                                "type": "plain_text_input",
                                 "action_id": "logo",
                                 "placeholder": {
                                         "type": "plain_text",

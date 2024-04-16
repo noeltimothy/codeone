@@ -8,7 +8,26 @@ var timeouts = {};
 var this_ip = "eva.galacticalabs.com";
 var config = {};
 var request_header = "_*User verification request*_\nFrom "
+var request_sent_header = "_*EVA notification*_\n"
+
 var verification_request =
+[
+    {
+      "type": "section",
+      "block_id": "section567",
+      "text": {
+        "type": "mrkdwn",
+        "text": "",
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "",
+        "alt_text": "logo"
+      }
+    }
+]
+
+var verification_sent_notification =
 [
     {
       "type": "section",
@@ -80,7 +99,7 @@ export default SlackFunction(
       			team_id: "galactica",
     		});
 
-		if (response.ok && (response.items.length > 0)) {
+		if (response.ok && (response.items.length > 0) && (response.items[0].domain.startsWith('http'))) {
 			config = response.items[0];
                 	eva_verify_view.blocks[1].accessory.image_url = String(response.items[0].logo);
                 	eva_verify_view.blocks[4].element.initial_value = String(response.items[0].request_message);
@@ -90,20 +109,21 @@ export default SlackFunction(
       				view: eva_verify_view
     			});
 
-    			if (response.error) {
-      				const error =
-       			 	`Failed to open a modal. Contact the app maintainers with the following information - (error: ${response.error})`;
-      				return { error };
-    			} return {
-      				completed: false,
-    			};
 		} else {
 			error_view.blocks[1].text.text = "EVA has not been configured properly. Please contact your administrator.";
     			response = await client.views.open({
-        			trigger_id: body.trigger_id,
+        			interactivity_pointer: inputs.interactivity.interactivity_pointer,
       				view: error_view
     			});
 		}
+
+    		if (response.error) {
+      			const error =
+       		 	`Failed to open a modal. Contact the app maintainers with the following information - (error: ${response.error})`;
+      			return { error };
+    		} return {
+      			completed: false,
+    		};
   	},
 )
 .addViewSubmissionHandler(["verification_screen"], async ({ client, body, view }) => {
@@ -143,6 +163,10 @@ export default SlackFunction(
 
 		console.log (verification_request);
 
+        	verification_sent_notification[0].accessory.image_url = response.items[0].logo;
+       	 	verification_sent_notification[0].text.text = request_sent_header + 
+                    "A verification request has been sent to <@" + target_user+ ">. Please wait until EVA notifies you after the user verifies your request."
+
                 await client.chat.postMessage({
                         channel: target_user,
                         blocks: verification_request,
@@ -150,14 +174,14 @@ export default SlackFunction(
 
                 await client.chat.postMessage({
                         channel: verifier,
-                        text: "A verification request has been sent to <@" + target_user+ ">. Please wait until EVA notifies you after the user verifies your request."
+                        blocks: verification_sent_notification,
                 });
                 //var timer = setTimeout(verification_timeout, Number(config.timeout)*1000, team, verifier, target_user);
                 //timeouts[verifier+'_'+target_user] = timer;
 	} else {
 		error_view.blocks[1].text.text = "EVA has not been configured properly. Please contact your administrator.";
     		response = await client.views.open({
-        		trigger_id: body.trigger_id,
+        		interactivity_pointer: inputs.interactivity.interactivity_pointer,
       			view: error_view
     		});
 	}

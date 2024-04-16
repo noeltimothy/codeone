@@ -13,7 +13,7 @@ var error_modal =
                 }
 ]
 
-var error_view: {
+var error_view = {
           type: 'modal',
           callback_id: 'error_screen',
           title: {
