@@ -1,7 +1,6 @@
 import { Manifest } from "deno-slack-sdk/mod.ts";
-import VerifyMeWorkflow from "./workflows/verifyme_workflow.ts";
-import VerificationWorkflow from "./workflows/verification_workflow.ts";
 import ConfigureEvaWorkflow from "./workflows/configure_eva.ts";
+import EvaVerifyWorkflow from "./workflows/eva_verify.ts";
 import EvaConfigurationDatastore from "./datastores/eva_configuration.ts";
 
 /**
@@ -13,7 +12,7 @@ export default Manifest({
   name: "EVA",
   description: "Employee Verify App",
   icon: "assets/default_new_app_icon.png",
-  workflows: [VerifyMeWorkflow, VerificationWorkflow, ConfigureEvaWorkflow],
+  workflows: [EvaVerifyWorkflow, ConfigureEvaWorkflow],
   outgoingDomains: [],
   datastores: [EvaConfigurationDatastore],
   botScopes: [
