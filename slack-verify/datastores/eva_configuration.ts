@@ -5,8 +5,8 @@ import { DefineDatastore, Schema } from "deno-slack-sdk/mod.ts";
  * and retrieve data for your app.
  * https://api.slack.com/automation/datastores
  */
-const SampleObjectDatastore = DefineDatastore({
-  name: "EVA",
+const EvaConfigurationDatastore = DefineDatastore({
+  name: "eva-config",
   primary_key: "team_id",
   attributes: {
     team_id: {
@@ -18,10 +18,19 @@ const SampleObjectDatastore = DefineDatastore({
     key: {
       type: Schema.types.string,
     },
-    message: {
+    logo: {
       type: Schema.types.string,
+    },
+    request_message: {
+      type: Schema.types.string,
+    },
+    response_message: {
+      type: Schema.types.string,
+    },
+    timeout: {
+      type: Schema.types.number,
     },
   },
 });
 
-export default SampleObjectDatastore;
+export default EvaConfigurationDatastore;
