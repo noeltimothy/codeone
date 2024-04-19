@@ -1,8 +1,10 @@
 
 import { DefineFunction, Schema, SlackFunction } from "deno-slack-sdk/mod.ts";
-import eva_verify_view from "../views/eva_verify.ts"
-import error_view from "../views/error.ts"
-import EvaConfigurationDatastore from "../datastores/eva_configuration.ts"
+import eva_verify_view from "../views/eva_verify.ts";
+import timeout_fn from "../functions/eva_timeout.ts";
+import error_view from "../views/error.ts";
+import EvaConfigurationDatastore from "../datastores/eva_configuration.ts";
+import { TriggerTypes } from "deno-slack-api/mod.ts";
 
 var timeouts = {};
 var this_ip = "eva.galacticalabs.com";
@@ -44,7 +46,7 @@ var verification_sent_notification =
     }
 ]
 
-/*var verification_response =
+var verification_response =
 [
     {
       "type": "section",
@@ -61,23 +63,6 @@ var verification_sent_notification =
     }
 ]
 
-var timeout_response =
-[
-    {
-      "type": "section",
-      "block_id": "section567",
-      "text": {
-        "type": "mrkdwn",
-        "text": "",
-      },
-      "accessory": {
-        "type": "image",
-        "image_url": "",
-        "alt_text": "logo"
-      }
-    }
-]*/
-
 export const eva_verify_fn = DefineFunction({
 	callback_id: "eva-verify",
 	title: "EVA Verify",
@@ -86,7 +71,10 @@ export const eva_verify_fn = DefineFunction({
  		properties: { interactivity: { type: Schema.slack.types.interactivity } },
   		required: ["interactivity"],
   	},
-  	output_parameters: { properties: {}, required: [] },
+  	output_parameters: { 
+		properties: {},
+		required: [] 
+	},
 });
 
 export default SlackFunction(
@@ -122,8 +110,9 @@ export default SlackFunction(
        		 	`Failed to open a modal. Contact the app maintainers with the following information - (error: ${response.error})`;
       			return { error };
     		} return {
-      			completed: false,
-    		};
+			completed: false,
+		}
+
   	},
 )
 .addViewSubmissionHandler(["verification_screen"], async ({ client, body, view }) => {
@@ -161,8 +150,6 @@ export default SlackFunction(
                   "&redirect_uri=https://" + this_ip + "/callback" +
                   "|sign-in to verify>";
 
-		console.log (verification_request);
-
         	verification_sent_notification[0].accessory.image_url = response.items[0].logo;
        	 	verification_sent_notification[0].text.text = request_sent_header + 
                     "A verification request has been sent to <@" + target_user+ ">. Please wait until EVA notifies you after the user verifies your request."
@@ -176,8 +163,7 @@ export default SlackFunction(
                         channel: verifier,
                         blocks: verification_sent_notification,
                 });
-                //var timer = setTimeout(verification_timeout, Number(config.timeout)*1000, team, verifier, target_user);
-                //timeouts[verifier+'_'+target_user] = timer;
+
 	} else {
 		error_view.blocks[1].text.text = "EVA has not been configured properly. Please contact your administrator.";
     		response = await client.views.open({
@@ -185,6 +171,29 @@ export default SlackFunction(
       			view: error_view
     		});
 	}
+
+    const scheduleDate = new Date();
+    
+    // TODO: instead of hard-coding this to 10 seconds past now, we need to
+    // use the timeout from the datastore + now.
+    scheduleDate.setSeconds(scheduleDate.getSeconds() + 10);
+
+    const scheduledTrigger = await client.workflows.triggers.create({
+      name: "EVA timeout scheduler",
+      workflow: "#/workflows/eva-timeout-workflow",
+      type: TriggerTypes.Scheduled,
+      inputs: {
+
+	//TODO: We need to send the verifier and sender information to the eva-timeout-workflow
+        //channel_id: { value: inputs.channel_id },
+      },
+      schedule: {
+        start_time: scheduleDate.toUTCString(),
+        frequency: {
+          type: "once",
+        },
+      },
+    });
   })
   // ---------------------------
   // The handler that can be called when the second modal data is closed.
