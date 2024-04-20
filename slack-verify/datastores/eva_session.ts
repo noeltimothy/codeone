@@ -16,6 +16,10 @@ const EvaSessionDatastore = DefineDatastore({
       // pending or complete
       type: Schema.types.string,
     },
+    timeout_message: {
+      // pending or complete
+      type: Schema.types.string,
+    },
   },
 });
 

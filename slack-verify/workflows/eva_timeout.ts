@@ -5,12 +5,13 @@ const EvaTimeoutWorkflow = DefineWorkflow({
   callback_id: "eva-timeout-workflow",
   title: "EVA Timeout Workflow",
   input_parameters: {
-	  // TODO: Add verifier and target here.
-	  properties: {},
+	  properties: {
+		  verifier_target: { type: Schema.types.string },
+	  },
 	  required: [],
   },
 });
 
-EvaTimeoutWorkflow.addStep(EvaTimeout, {});
+EvaTimeoutWorkflow.addStep(EvaTimeout, {verifier_target: EvaTimeoutWorkflow.inputs.verifier_target});
 
 export default EvaTimeoutWorkflow;

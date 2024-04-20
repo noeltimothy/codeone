@@ -27,9 +27,8 @@ export const timeout_fn = DefineFunction({
 	title: "EVA Verification Timeout",
 	source_file: "./functions/eva_timeout.ts",
 	input_parameters: {
-		// TODO: Add target user here as well
  		properties: { 
-			verifier: { type: Schema.slack.types.user_id },
+			verifier_target: { type: Schema.types.string },
 		},
   		required: [],
   	},
@@ -38,20 +37,17 @@ export const timeout_fn = DefineFunction({
 
 export default SlackFunction(
 	timeout_fn,
-  	async ({ client, verifier }) => {
-		console.log ('slack timeout trigger function called');
+  	async ({ client, inputs }) => {
+		console.log ('slack timeout trigger function called: ' + inputs.verifier_target);
     		var response = await client.apps.datastore.query<
-      			typeof EvaConfigurationDatastore.definition
+      			typeof EvaSessionDatastore.definition
     		>({
-      			datastore: EvaConfigurationDatastore.name,
-      			team_id: "galactica",
+      			datastore: EvaSessionDatastore.name,
+      			verifier_target: inputs.verifier_target,
     		});
 
-		// TODO: we need to lookup the sessions datastore by verifier and target
-		// if the flag says verification complete, we ignore sending the timeout message
-		// if the flag says verification pending, we send out the timeout and remove the entry from the datastore.
-		// Use EvaSessionDatastore here.
-		if (response.ok && (response.items.length > 0) && (response.items[0].domain.startsWith('http'))) {
+		if (response.ok && (response.items.length > 0) && (response.items[0].flag == "pending")) {
+			var [ verifier, target ] = inputs.verifier_target.split('_');
     			response = await client.chat.postMessage({
         			channel: verifier,
       				text: response.items[0].timeout_message
@@ -59,5 +55,7 @@ export default SlackFunction(
 		} else {
 			console.log ('none');
 		}
+
+		return { completed: false };
   	},
 );

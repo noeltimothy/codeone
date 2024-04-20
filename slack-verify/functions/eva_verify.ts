@@ -4,6 +4,7 @@ import eva_verify_view from "../views/eva_verify.ts";
 import timeout_fn from "../functions/eva_timeout.ts";
 import error_view from "../views/error.ts";
 import EvaConfigurationDatastore from "../datastores/eva_configuration.ts";
+import EvaSessionDatastore from "../datastores/eva_session.ts";
 import { TriggerTypes } from "deno-slack-api/mod.ts";
 
 var timeouts = {};
@@ -62,6 +63,20 @@ var verification_response =
       }
     }
 ]
+
+const newSession = async (client, verifier, target, timeout_message) => {
+        const putResponse = await client.apps.datastore.put<
+                typeof EvaSessionDatastore.definition
+        >({
+                datastore: EvaSessionDatastore.name,
+                item: {
+			verifier_target: verifier + "_" + target,
+			flag: "pending",
+			timeout_message: timeout_message
+		}
+        });
+}
+
 
 export const eva_verify_fn = DefineFunction({
 	callback_id: "eva-verify",
@@ -163,6 +178,39 @@ export default SlackFunction(
                         channel: verifier,
                         blocks: verification_sent_notification,
                 });
+		
+		newSession(client, verifier, target_user, response.items[0].timeout_message);
+
+		const key = verifier + "_" + target_user;
+
+    		// TODO: instead of hard-coding this to 10 seconds past now, we need to
+   		// use the timeout from the datastore + now.
+    		const scheduleDate = new Date();
+   		scheduleDate.setSeconds(scheduleDate.getSeconds() + 10);
+
+		console.log ('setting trigger to execute at: ' + scheduleDate.toUTCString());
+    		const scheduledTrigger = await client.workflows.triggers.create({
+      			name: "EVA timeout scheduler",
+      			workflow: "#/workflows/eva-timeout-workflow",
+      			type: TriggerTypes.Scheduled,
+      			inputs: {
+	        		verifier_target: { value: key },
+      			},
+      			schedule: {
+        			start_time: scheduleDate.toUTCString(),
+        			frequency: {
+          				type: "once",
+        			},
+      			},
+    		});
+
+    		if (!scheduledTrigger.trigger) {
+			console.log ("Trigger could not be created");
+      			return {
+        			error: "Trigger could not be created",
+      			};
+    		}
+
 
 	} else {
 		error_view.blocks[1].text.text = "EVA has not been configured properly. Please contact your administrator.";
@@ -172,28 +220,6 @@ export default SlackFunction(
     		});
 	}
 
-    const scheduleDate = new Date();
-    
-    // TODO: instead of hard-coding this to 10 seconds past now, we need to
-    // use the timeout from the datastore + now.
-    scheduleDate.setSeconds(scheduleDate.getSeconds() + 10);
-
-    const scheduledTrigger = await client.workflows.triggers.create({
-      name: "EVA timeout scheduler",
-      workflow: "#/workflows/eva-timeout-workflow",
-      type: TriggerTypes.Scheduled,
-      inputs: {
-
-	//TODO: We need to send the verifier and sender information to the eva-timeout-workflow
-        //channel_id: { value: inputs.channel_id },
-      },
-      schedule: {
-        start_time: scheduleDate.toUTCString(),
-        frequency: {
-          type: "once",
-        },
-      },
-    });
   })
   // ---------------------------
   // The handler that can be called when the second modal data is closed.

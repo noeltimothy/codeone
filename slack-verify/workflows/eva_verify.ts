@@ -1,5 +1,6 @@
 import { DefineWorkflow, Schema } from "deno-slack-sdk/mod.ts";
 import { eva_verify_fn as EvaVerify } from "../functions/eva_verify.ts";
+import { timeout_fn as EvaTimeout } from "../functions/eva_timeout.ts";
 
 const EvaVerifyWorkflow = DefineWorkflow({
   callback_id: "eva-verify-workflow",
