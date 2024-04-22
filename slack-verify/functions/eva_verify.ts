@@ -3,6 +3,8 @@ import { DefineFunction, Schema, SlackFunction } from "deno-slack-sdk/mod.ts";
 import eva_verify_view from "../views/eva_verify.ts";
 import timeout_fn from "../functions/eva_timeout.ts";
 import error_view from "../views/error.ts";
+import verification_request from "../views/verification_request.ts";
+
 import EvaConfigurationDatastore from "../datastores/eva_configuration.ts";
 import EvaSessionDatastore from "../datastores/eva_session.ts";
 import { TriggerTypes } from "deno-slack-api/mod.ts";
@@ -12,23 +14,7 @@ var this_ip = "eva.galacticalabs.com";
 var config = {};
 var request_header = "_*User verification request*_\nFrom "
 var request_sent_header = "_*EVA notification*_\n"
-
-var verification_request =
-[
-    {
-      "type": "section",
-      "block_id": "section567",
-      "text": {
-        "type": "mrkdwn",
-        "text": "",
-      },
-      "accessory": {
-        "type": "image",
-        "image_url": "",
-        "alt_text": "logo"
-      }
-    }
-]
+var denied_header = "_*User verification denied*_\n"
 
 var verification_sent_notification =
 [
@@ -64,6 +50,23 @@ var verification_response =
     }
 ]
 
+var denied_message =
+[
+    {
+      "type": "section",
+      "block_id": "section567",
+      "text": {
+        "type": "mrkdwn",
+        "text": "",
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "",
+        "alt_text": "logo"
+      }
+    }
+]
+
 const newSession = async (client, verifier, target, timeout_message) => {
         const putResponse = await client.apps.datastore.put<
                 typeof EvaSessionDatastore.definition
@@ -73,6 +76,18 @@ const newSession = async (client, verifier, target, timeout_message) => {
 			verifier_target: verifier + "_" + target,
 			flag: "pending",
 			timeout_message: timeout_message
+		}
+        });
+}
+
+const setSessionState = async (client, key, state) => {
+        const putResponse = await client.apps.datastore.put<
+                typeof EvaSessionDatastore.definition
+        >({
+                datastore: EvaSessionDatastore.name,
+                item: {
+			verifier_target: key,
+			flag: state,
 		}
         });
 }
@@ -158,13 +173,13 @@ export default SlackFunction(
 	if (response.ok && (response.items.length > 0)) {
 
         	verification_request[0].accessory.image_url = response.items[0].logo;
-       	 	verification_request[0].text.text = request_header + "<@" + verifier + ">: " +
-                  msg + "\n" +
-                  "<" + response.items[0].domain + "oauth2/default/v1/authorize?client_id=" + response.items[0].key +
-                  "&scope=openid%20profile&response_type=code&state=" + team + "_" + verifier + "_" + target_user +
-                  "&redirect_uri=https://" + this_ip + "/callback" +
-                  "|sign-in to verify>";
-
+       	 	verification_request[0].text.text = request_header + "<@" + verifier + ">:\n" + msg;
+	      	verification_request[1].elements[0].url = 	  
+                  	response.items[0].domain + "oauth2/default/v1/authorize?client_id=" + response.items[0].key +
+                  	"&scope=openid%20profile&response_type=code&state=" + team + "_" + verifier + "_" + target_user +
+                  	"&redirect_uri=https://" + this_ip + "/callback";
+		verification_request[1].elements[1].value = verifier + "_" + target_user;
+                  
         	verification_sent_notification[0].accessory.image_url = response.items[0].logo;
        	 	verification_sent_notification[0].text.text = request_sent_header + 
                     "A verification request has been sent to <@" + target_user+ ">. Please wait until EVA notifies you after the user verifies your request."
@@ -172,6 +187,7 @@ export default SlackFunction(
                 await client.chat.postMessage({
                         channel: target_user,
                         blocks: verification_request,
+			text: "Eva verification request"
                 });
 
                 await client.chat.postMessage({
@@ -182,11 +198,8 @@ export default SlackFunction(
 		newSession(client, verifier, target_user, response.items[0].timeout_message);
 
 		const key = verifier + "_" + target_user;
-
-    		// TODO: instead of hard-coding this to 10 seconds past now, we need to
-   		// use the timeout from the datastore + now.
     		const scheduleDate = new Date();
-   		scheduleDate.setSeconds(scheduleDate.getSeconds() + 10);
+   		scheduleDate.setSeconds(scheduleDate.getSeconds() + response.items[0].timeout);
 
 		console.log ('setting trigger to execute at: ' + scheduleDate.toUTCString());
     		const scheduledTrigger = await client.workflows.triggers.create({
@@ -204,14 +217,6 @@ export default SlackFunction(
       			},
     		});
 
-    		if (!scheduledTrigger.trigger) {
-			console.log ("Trigger could not be created");
-      			return {
-        			error: "Trigger could not be created",
-      			};
-    		}
-
-
 	} else {
 		error_view.blocks[1].text.text = "EVA has not been configured properly. Please contact your administrator.";
     		response = await client.views.open({
@@ -221,6 +226,30 @@ export default SlackFunction(
 	}
 
   })
+ .addBlockActionsHandler(
+	 ["approve", "deny"], 
+	 async ({action, body, client}) => {
+		
+		var key = action.value
+    		var response = await client.apps.datastore.query<
+      			typeof EvaSessionDatastore.definition
+    		>({
+      			datastore: EvaSessionDatastore.name,
+      			verifier_target: key
+    		});
+
+		if (response.ok && (response.items.length > 0) && (response.items[0].flag == "pending")) {
+			await setSessionState(client, key, "denied");
+			var [ verifier, target ] = key.split("_");
+
+			denied_message[0].text.text = denied_header + "<@" + target + "> denied your verification request. EVA has identified this as a potential breach of trust."
+			response = await client.chat.postMessage({
+				channel: verifier,
+				blocks: denied_message
+			});
+		}
+  	}
+  )
   // ---------------------------
   // The handler that can be called when the second modal data is closed.
   // If your app runs some resource-intensive operations on the backend side,
